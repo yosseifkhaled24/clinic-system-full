@@ -12,6 +12,8 @@ use App\Http\Controllers\Api\DoctorScheduleController;
 use App\Http\Controllers\Api\ContactMessageController;
 use App\Http\Controllers\Api\QueueController;
 use App\Http\Controllers\Api\PatientHistoryController;
+use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\Api\StripeWebhookController;
 
 /*
 |--------------------------------------------------------------------------
@@ -45,6 +47,11 @@ Route::apiResource('services', ServiceController::class)
 Route::apiResource('reviews', ReviewController::class)
     ->only(['index', 'show']);
 
+Route::post(
+    '/stripe/webhook',
+    [StripeWebhookController::class, 'handle']
+);
+
 /*
 |--------------------------------------------------------------------------
 | Protected APIs
@@ -71,12 +78,16 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Patient Search
     Route::get('/patients/search', [PatientController::class, 'search']);
-
+    
     // Appointment Status
     Route::patch(
         '/appointments/{appointment}/status',
         [AppointmentController::class, 'updateStatus']
     );
+    Route::patch(
+    '/appointments/{appointment}/payment',
+    [AppointmentController::class, 'updatePayment']
+);
      Route::get(
      '/patients/{patient}/history',
       [PatientHistoryController::class, 'show']
@@ -85,7 +96,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Resources
     Route::apiResource('patients', PatientController::class);
-
+    Route::post(
+      '/payments/checkout',
+      [PaymentController::class, 'checkout']
+    );
     Route::apiResource('appointments', AppointmentController::class);
 
     Route::apiResource('schedules', DoctorScheduleController::class);

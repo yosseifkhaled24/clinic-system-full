@@ -14,6 +14,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use App\Exports\TodayAppointmentsExport;
 use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Validation\Rule;
 
 class AppointmentController extends Controller
 {
@@ -221,6 +222,44 @@ class AppointmentController extends Controller
             ),
         ]);
     }
+    public function updatePayment(Request $request, Appointment $appointment): JsonResponse
+{
+    $request->validate([
+        'payment_method' => [
+            'required',
+            Rule::in([
+                'cash',
+                'visa',
+                'stripe',
+                'instapay',
+                'vodafone_cash',
+            ]),
+        ],
+    ]);
+
+    if ($appointment->payment_status === 'paid') {
+        return response()->json([
+            'message' => 'Appointment already paid.'
+        ], 422);
+    }
+
+    $appointment->update([
+        'payment_status' => 'paid',
+        'payment_method' => $request->payment_method,
+        'paid_at' => now(),
+    ]);
+
+    return response()->json([
+        'message' => 'Payment updated successfully.',
+        'data' => $this->formatAppointment(
+            $appointment->refresh()->load([
+                'doctor',
+                'patient',
+                'service',
+            ])
+        ),
+    ]);
+}
 
     public function destroy(Request $request, Appointment $appointment): JsonResponse
     {
