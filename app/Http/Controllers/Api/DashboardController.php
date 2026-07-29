@@ -9,7 +9,6 @@ use App\Models\Doctor;
 use App\Models\Patient;
 use App\Models\Review;
 use App\Models\Service;
-use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 
 class DashboardController extends Controller
@@ -28,7 +27,7 @@ class DashboardController extends Controller
 
             'appointments_today' => Appointment::whereDate(
                 'appointment_date',
-                Carbon::today()
+                today()
             )->count(),
 
             'pending_count' => Appointment::where('status', 'pending')->count(),

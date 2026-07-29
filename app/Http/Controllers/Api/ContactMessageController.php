@@ -11,16 +11,20 @@ class ContactMessageController extends Controller
 {
     public function index(): JsonResponse
     {
-        $messages = ContactMessage::all()->map(function (ContactMessage $message) {
-            return $this->formatContactMessage($message);
-        });
+        $messages = ContactMessage::latest()
+            ->get()
+            ->map(function (ContactMessage $message) {
+                return $this->formatContactMessage($message);
+            });
 
         return response()->json($messages);
     }
 
     public function show(ContactMessage $contactMessage): JsonResponse
     {
-        return response()->json($this->formatContactMessage($contactMessage));
+        return response()->json(
+            $this->formatContactMessage($contactMessage)
+        );
     }
 
     public function store(ContactMessageRequest $request): JsonResponse
