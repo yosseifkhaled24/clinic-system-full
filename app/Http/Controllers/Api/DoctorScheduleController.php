@@ -16,18 +16,7 @@ class DoctorScheduleController extends Controller
     {
         $schedules = DoctorSchedule::with('doctor')
             ->orderBy('doctor_id')
-            ->orderByRaw("
-                FIELD(
-                    day,
-                    'Saturday',
-                    'Sunday',
-                    'Monday',
-                    'Tuesday',
-                    'Wednesday',
-                    'Thursday',
-                    'Friday'
-                )
-            ")
+            ->orderByRaw($this->dayOrderSql())
             ->get()
             ->map(fn (DoctorSchedule $schedule) => $this->formatSchedule($schedule));
 
@@ -41,18 +30,7 @@ class DoctorScheduleController extends Controller
     {
         $schedules = DoctorSchedule::with('doctor')
             ->where('doctor_id', $doctorId)
-            ->orderByRaw("
-                FIELD(
-                    day,
-                    'Saturday',
-                    'Sunday',
-                    'Monday',
-                    'Tuesday',
-                    'Wednesday',
-                    'Thursday',
-                    'Friday'
-                )
-            ")
+            ->orderByRaw($this->dayOrderSql())
             ->get()
             ->map(fn (DoctorSchedule $schedule) => $this->formatSchedule($schedule));
 
@@ -113,6 +91,27 @@ class DoctorScheduleController extends Controller
         return response()->json([
             'message' => 'Schedule deleted successfully.'
         ]);
+    }
+
+    /**
+     * Portable Saturday→Friday day ordering.
+     *
+     * MySQL's FIELD() is unsupported on SQLite/Postgres, so the same
+     * ordering is expressed with a standard SQL CASE expression that
+     * behaves identically on every database driver.
+     */
+    private function dayOrderSql(): string
+    {
+        return "CASE day
+            WHEN 'Saturday' THEN 1
+            WHEN 'Sunday' THEN 2
+            WHEN 'Monday' THEN 3
+            WHEN 'Tuesday' THEN 4
+            WHEN 'Wednesday' THEN 5
+            WHEN 'Thursday' THEN 6
+            WHEN 'Friday' THEN 7
+            ELSE 8
+        END";
     }
 
     /**

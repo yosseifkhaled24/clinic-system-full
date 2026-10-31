@@ -28,6 +28,13 @@ class StoreAppointmentRequest extends FormRequest
             'email' => 'nullable|email',
 
             'gender' => 'nullable|in:male,female',
+
+            // D3: an admin may pick the status at create time; everyone
+            // else is rejected if they try to send one (patients book as
+            // 'pending' implicitly). Absent/null keeps the legacy default.
+            'status' => $this->user()->role === 'admin'
+                ? 'sometimes|nullable|in:pending,arrived,in_progress,completed,cancelled,no_show'
+                : 'prohibited',
         ];
 
         if ($this->user()->role === 'admin') {

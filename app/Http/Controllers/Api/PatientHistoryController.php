@@ -5,11 +5,20 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Patient;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class PatientHistoryController extends Controller
 {
-    public function show(Patient $patient): JsonResponse
+    public function show(Request $request, Patient $patient): JsonResponse
     {
+        $user = $request->user();
+
+        if ($user->role !== 'admin' && $patient->user_id !== $user->id) {
+            return response()->json([
+                'message' => 'Forbidden',
+            ], 403);
+        }
+
         $appointments = $patient->appointments()
             ->with([
                 'doctor',
@@ -23,7 +32,7 @@ class PatientHistoryController extends Controller
             return [
                 'appointment_id' => $appointment->id,
 
-                'date' => $appointment->appointment_date,
+                'date' => $appointment->appointment_date?->toDateString(),
 
                 'queue_number' => $appointment->queue_number,
 
@@ -92,7 +101,7 @@ class PatientHistoryController extends Controller
 
                 'last_visit' => optional(
                     $appointments->first()
-                )->appointment_date,
+                )?->appointment_date?->toDateString(),
             ],
 
             'history' => $history

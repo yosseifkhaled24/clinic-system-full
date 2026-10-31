@@ -17,7 +17,7 @@ class StoreReviewRequest extends FormRequest
             'doctor_id' => 'required|exists:doctors,id',
             'appointment_id' => 'required|exists:appointments,id',
             'rating' => 'required|integer|min:1|max:5',
-            'comment' => 'nullable|string',
+            'comment' => 'nullable|string|max:1000',
         ];
     }
 }

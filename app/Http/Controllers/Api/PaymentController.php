@@ -44,9 +44,9 @@ class PaymentController extends Controller
             // Stripe يستقبل المبلغ بأصغر وحدة (قرش)
             'amount' => (int) ($appointment->service_price * 100),
 
-            'success_url' => env('FRONTEND_URL') . '/payment/success',
+            'success_url' => config('services.stripe.frontend_url') . '/payment/success',
 
-            'cancel_url' => env('FRONTEND_URL') . '/payment/cancel',
+            'cancel_url' => config('services.stripe.frontend_url') . '/payment/cancel',
         ]);
 
         return response()->json([

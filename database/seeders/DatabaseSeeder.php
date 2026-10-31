@@ -9,6 +9,7 @@ use App\Models\DoctorSchedule;
 use App\Models\Patient;
 use App\Models\Review;
 use App\Models\Service;
+use App\Models\Specialty;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
@@ -42,11 +43,26 @@ class DatabaseSeeder extends Seeder
 
         /*
         |--------------------------------------------------------------------------
-        | Doctors
+        | Specialties + Doctors
         |--------------------------------------------------------------------------
         */
 
-        $doctors = Doctor::factory(6)->create();
+        // Specialties are seeded FIRST from their own idempotent seeder,
+        // then each doctor is assigned a REAL specialty record by id
+        // (deterministic round-robin — no random strings, no hardcoded
+        // IDs). The Doctor::saving() hook mirrors each linked specialty's
+        // canonical name into doctors.specialty.
+        $this->call(SpecialtySeeder::class);
+
+        $specialties = Specialty::whereIn('name', SpecialtySeeder::NAMES)
+            ->orderBy('id')
+            ->get();
+
+        $doctors = $specialties
+            ->map(fn (Specialty $specialty) => Doctor::factory()->create([
+                'specialty_id' => $specialty->id,
+            ]))
+            ->collect();
 
         $images = File::files(database_path('seed-images/doctors'));
 

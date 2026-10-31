@@ -25,13 +25,27 @@ class Appointment extends Model
 
     'status',
     'notes',
+    'needs_investigation',
 ];
 
     protected $casts = [
     'appointment_date' => 'date',
     'paid_at' => 'datetime',
     'service_price' => 'decimal:2',
+    'needs_investigation' => 'boolean',
 ];
+
+    /**
+     * Statuses that still hold daily capacity or block a same-day rebooking.
+     * Cancelled and no-show appointments release their slot (D1) but their
+     * queue numbers are never recycled.
+     */
+    public const ACTIVE_STATUSES = ['pending', 'arrived', 'in_progress', 'completed'];
+
+    public function scopeActive($query)
+    {
+        return $query->whereIn('status', self::ACTIVE_STATUSES);
+    }
 
     public function user()
     {
