@@ -8,13 +8,15 @@ RUN apt-get update && apt-get install -y \
     libpng-dev \
     libjpeg62-turbo-dev \
     libfreetype6-dev \
+    libicu-dev \
 && docker-php-ext-configure gd --with-freetype --with-jpeg \
 && docker-php-ext-install \
     gd \
     exif \
     zip \
     pdo \
-    pdo_mysql
+    pdo_mysql \
+    intl
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www
@@ -27,4 +29,4 @@ RUN php artisan config:clear
 
 EXPOSE 10000
 
-CMD php artisan serve --host=0.0.0.0 --port=10000
+CMD php artisan serve --host=0.0.0.0 --port=${PORT:-10000}
