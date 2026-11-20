@@ -11,7 +11,12 @@ class ServiceController extends Controller
 {
     public function index(): JsonResponse
     {
-        $services = Service::all()->map(function (Service $service) {
+        // Phase 1: eager-load media so formatService()'s getFirstMediaUrl()
+        // reads the already-loaded relation instead of querying once per
+        // service (the 1 + N media queries of the audit). formatService()
+        // returns a fixed scalar array, so the JSON response is byte-for-
+        // byte what it was before (locked by MediaEagerLoadingTest).
+        $services = Service::with('media')->get()->map(function (Service $service) {
             return $this->formatService($service);
         });
 

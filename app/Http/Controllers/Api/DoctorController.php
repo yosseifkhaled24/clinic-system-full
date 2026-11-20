@@ -52,7 +52,13 @@ class DoctorController extends Controller
             );
         }
 
-        $doctors = $query->get()->map(function ($doctor) {
+        // Phase 1: eager-load media so getFirstMediaUrl() below reads the
+        // already-loaded relation instead of querying once per row (the
+        // 1 + N media queries of the audit). The response shape does not
+        // change: the relation was already loaded on every model by the
+        // previous lazy access, so `media` and `image_url` serialize
+        // exactly as before (locked by MediaEagerLoadingTest).
+        $doctors = $query->with('media')->get()->map(function ($doctor) {
             $doctor->image_url = $doctor->getFirstMediaUrl('doctors');
             return $doctor;
         });

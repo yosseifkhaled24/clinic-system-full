@@ -14,6 +14,7 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Str;
 
 class DatabaseSeeder extends Seeder
 {
@@ -21,17 +22,23 @@ class DatabaseSeeder extends Seeder
     {
         /*
         |--------------------------------------------------------------------------
-        | Admin
+        | Administrator (A7 / H-1)
         |--------------------------------------------------------------------------
+        |
+        | This seeder no longer creates an administrator. It used to insert
+        | a fixed account with a publicly readable password, so every
+        | `db:seed` (including the composer `setup` script a buyer runs)
+        | shipped a known privileged login.
+        |
+        | The first administrator is now provisioned explicitly, and only
+        | when someone asks for it:
+        |
+        |     php artisan app:admin you@clinic.example --name="Clinic Admin"
+        |
+        | The command prompts for the password with a hidden input and
+        | never prints it (see App\Console\Commands\MakeAdmin).
+        |
         */
-
-        User::create([
-            'name' => 'Admin',
-            'email' => 'admin@test.com',
-            'phone' => '01000000000',
-            'password' => bcrypt('12345678'),
-            'role' => 'admin',
-        ]);
 
         /*
         |--------------------------------------------------------------------------
@@ -39,7 +46,17 @@ class DatabaseSeeder extends Seeder
         |--------------------------------------------------------------------------
         */
 
-        $users = User::factory(30)->create();
+        // Demo accounts only: non-admin by default (UserFactory no longer
+        // randomizes the admin role) with a random password, so a seeded
+        // database never hands out a guessable login. Nothing here is
+        // needed to operate the clinic — real accounts are registered
+        // through the app and promoted with `app:admin`.
+        $users = User::factory(30)->create([
+            // A closure so each of the 30 rows gets its OWN random
+            // password: a plain value would be evaluated once and the
+            // same hash reused for every demo account.
+            'password' => fn () => bcrypt(Str::random(32)),
+        ]);
 
         /*
         |--------------------------------------------------------------------------

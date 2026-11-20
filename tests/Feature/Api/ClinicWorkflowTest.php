@@ -499,7 +499,7 @@ test('D: admin appointment list is chronological with queue order inside a day',
 
     Sanctum::actingAs(wfAdmin());
 
-    $ids = collect($this->getJson('/api/appointments')->assertStatus(200)->json())
+    $ids = collect($this->getJson('/api/appointments')->assertStatus(200)->json('data'))
         ->pluck('id')->all();
 
     // Chronological across days; within the same day grouped by doctor,

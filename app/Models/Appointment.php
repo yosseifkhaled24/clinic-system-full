@@ -42,6 +42,14 @@ class Appointment extends Model
      */
     public const ACTIVE_STATUSES = ['pending', 'arrived', 'in_progress', 'completed'];
 
+    /**
+     * SEC-06: the ONLY statuses that may enter online checkout (approved
+     * eligible set: pending / arrived / in_progress). Cancelled and
+     * no-show bookings must never collect money, and completed visits
+     * are settled through the admin cash flow — not a new Stripe session.
+     */
+    public const PAYABLE_STATUSES = ['pending', 'arrived', 'in_progress'];
+
     public function scopeActive($query)
     {
         return $query->whereIn('status', self::ACTIVE_STATUSES);

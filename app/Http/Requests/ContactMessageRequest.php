@@ -17,7 +17,14 @@ class ContactMessageRequest extends FormRequest
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255',
             'subject' => 'required|string|max:255',
-            'message' => 'required|string',
+            // SEC-11: bound the free-text body so a single submission can't
+            // store megabytes of text (the DB column is `text`). 2000
+            // characters comfortably fits long Arabic/English messages;
+            // UTF-8 content passes untouched — nothing is stripped or
+            // rewritten, HTML/script payloads are kept as plain text and
+            // escaped wherever they are displayed (React text nodes, no
+            // dangerouslySetInnerHTML anywhere in the frontend).
+            'message' => 'required|string|max:2000',
         ];
     }
 }

@@ -23,11 +23,34 @@ use App\Http\Controllers\Api\SpecialtyController;
 |--------------------------------------------------------------------------
 */
 
-Route::post('/register', [AuthController::class, 'register']);
+// SEC-04: registration throttle (3/min per IP) — see AppServiceProvider.
+Route::post('/register', [AuthController::class, 'register'])
+    ->middleware('throttle:register');
+// Login carries SEC-04 throttling inside the controller: it must count
+// only FAILED attempts (keyed by normalized email + IP) and clear the
+// counter on a successful login.
 Route::post('/login', [AuthController::class, 'login']);
 
-// Public Contact
-Route::post('/contact-messages', [ContactMessageController::class, 'store']);
+// SEC-03: email verification. The link in the notification points at the
+// frontend /verify-email page, which follows it here; this route
+// validates the account hash AND the signed URL (invalid and expired
+// links redirect with an explicit status and never confirm anything).
+Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
+    ->name('verification.verify');
+
+// SEC-03/SEC-04: resend the verification email. Credential-gated and
+// throttled (3/min per normalized email + IP) to prevent enumeration
+// and email bombing; the response is uniform for every outcome.
+Route::post('/email/verification-notification', [AuthController::class, 'resendVerification'])
+    ->middleware('throttle:verification-resend')
+    ->name('verification.resend');
+
+// Public Contact — SEC-11: throttled at 5 submissions/minute per IP
+// (named limiter in AppServiceProvider) so the endpoint can't be used to
+// flood the admin inbox or spam storage, while a real person composing
+// messages is never inconvenienced.
+Route::post('/contact-messages', [ContactMessageController::class, 'store'])
+    ->middleware('throttle:contact');
 
 // Public Doctors
 Route::apiResource('doctors', DoctorController::class)
@@ -63,7 +86,7 @@ Route::apiResource('reviews', ReviewController::class)
     ->only(['index', 'show']);
 
 // Public AI chatbot (Gemini clinic assistant).
-// Throttled like the other public write endpoints (contact = unthrottled,
+// Throttled like the other public write endpoints (contact = 5/min/IP,
 // checkout = 20/min, webhook = 60/min): 20 messages/minute per user/IP.
 Route::post('/chatbot', [ChatbotController::class, 'store'])
     ->middleware('throttle:20,1');
@@ -85,6 +108,13 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Authentication
     Route::get('/user', [AuthController::class, 'user']);
+    // F-01: profile + password updates. The settings page PATCHes
+    // /user and /user/password, but only GET /user existed here, so
+    // every save answered 404/405. Both sit in the same auth:sanctum
+    // group as GET /user and reuse the existing response conventions
+    // (bare user object / {message}).
+    Route::patch('/user', [AuthController::class, 'updateProfile']);
+    Route::patch('/user/password', [AuthController::class, 'updatePassword']);
     Route::post('/logout', [AuthController::class, 'logout']);
 
     // Dashboard (Admin)
@@ -148,8 +178,24 @@ Route::middleware('auth:sanctum')->group(function () {
       '/payments/checkout',
       [PaymentController::class, 'checkout']
     )->middleware('throttle:20,1');
-    Route::apiResource('appointments', AppointmentController::class);
+    // SEC-06: read-only payment confirmation for the payment success page.
+    // Fetches the REAL Stripe session state server-side; it never marks an
+    // appointment as paid — only the signed webhook (or the admin cash
+    // flow) may do that. Throttled as defense in depth.
+    Route::get(
+      '/payments/status',
+      [PaymentController::class, 'paymentStatus']
+    )->middleware('throttle:30,1');
+    // Part C: minimal admin-only "new bookings" feed for the dashboard
+    // toast. MUST be declared before apiResource('appointments') — the
+    // resource registers GET /appointments/{appointment}, which would
+    // otherwise swallow the literal `recent` segment.
+    Route::get(
+        '/appointments/recent',
+        [AppointmentController::class, 'recent']
+    )->middleware('admin');
 
+    Route::apiResource('appointments', AppointmentController::class);
     // Schedule reads are admin-only (consumed exclusively by the admin
     // dashboard; the public site uses /doctors/{doctor}/schedules).
     Route::apiResource('schedules', DoctorScheduleController::class)

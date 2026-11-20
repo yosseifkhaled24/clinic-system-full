@@ -48,9 +48,19 @@ return [
     | considered expired. This will override any values set in the token's
     | "expires_at" attribute, but first-party sessions are not affected.
     |
+    | SEC-14: 43200 minutes = 30 days. Tokens are validated against
+    | `personal_access_tokens.created_at` on every request (see
+    | Sanctum\Guard), so no migration and no changes to existing token
+    | rows were required. Tokens created BEFORE this value took effect
+    | are affected too: once a token is older than 30 days it is rejected
+    | on its next request with 401 (the frontend interceptor then clears
+    | it and redirects to login). Login issues a fresh token, and the
+    | one-active-token-per-user policy in AuthController::login is
+    | unchanged.
+    |
     */
 
-    'expiration' => null,
+    'expiration' => 43200,
 
     /*
     |--------------------------------------------------------------------------

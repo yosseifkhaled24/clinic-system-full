@@ -40,7 +40,19 @@ class UpdateAppointmentRequest extends FormRequest
                 ? 'sometimes|required|exists:doctors,id'
                 : 'prohibited',
 
-            'service_id' => 'sometimes|required|exists:services,id',
+            // SEC-07: only admins may change the service (the admin edit
+            // form always sends the current service_id, so an unchanged
+            // value still validates). Non-admins editing their own
+            // appointment (notes) get 422 if they send service_id at all —
+            // the controller never sees it, so a patient can never swap
+            // the service (and therefore the price) behind the server's
+            // back, least of all on completed or paid appointments. The
+            // authoritative price is always re-read from the Service
+            // record in the controller; service_price is not accepted
+            // from any client.
+            'service_id' => $isAdmin
+                ? 'sometimes|required|exists:services,id'
+                : 'prohibited',
 
             // D4: only admins may change the date. For admins the
             // forward-only rule still blocks booking into the past, while

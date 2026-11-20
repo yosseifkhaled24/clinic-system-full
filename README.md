@@ -57,3 +57,31 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 ## License
 
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+
+---
+
+## Production Security Configuration (SEC-03 / SEC-05 / SEC-06)
+
+These are deployment requirements — verify them on every production host:
+
+1. **`APP_DEBUG=false`** — debug mode renders full stack traces, file
+   paths and configuration to any visitor who triggers an error. Keep it
+   `true` only for local development. Laravel returns generic error
+   responses once it is `false`.
+
+2. **Mail transport** — email verification is sent through `MAIL_*`
+   settings (see `.env.example` for the required keys). If the transport
+   is not configured, registration still succeeds but reports
+   `notification_sent=false`; users can request a resend once mail is
+   available. Never commit real SMTP credentials.
+
+3. **`STRIPE_WEBHOOK_SECRET`** — the signing secret (`whsec_...`) of
+   your Stripe webhook endpoint, from Stripe > Developers > Webhooks.
+   Without it, checkout and payment-status endpoints fail safely with
+   HTTP 503 ("online payments are not configured") and webhook
+   deliveries are rejected; no secret is ever invented or hardcoded.
+   Online payments cannot be confirmed without it.
+
+4. **`FRONTEND_URL`** — origin of the Next.js app; verification links
+   redirect to `{FRONTEND_URL}/verify-email` after the signed backend
+   route validates them.

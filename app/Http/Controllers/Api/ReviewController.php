@@ -10,21 +10,25 @@ use App\Models\Review;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class ReviewController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
         $reviews = Review::with(['doctor', 'user', 'appointment'])->latest()->get()->map(function (Review $review) {
-            return $this->formatReview($review);
+            return $this->formatReview($review, $this->revealReviewerDetails($review));
         });
 
         return response()->json($reviews);
     }
 
-    public function show(Review $review): JsonResponse
+    public function show(Request $request, Review $review): JsonResponse
     {
-        return response()->json($this->formatReview($review->load(['doctor', 'user', 'appointment'])));
+        return response()->json($this->formatReview(
+            $review->load(['doctor', 'user', 'appointment']),
+            $this->revealReviewerDetails($review)
+        ));
     }
 
     public function store(StoreReviewRequest $request): JsonResponse
@@ -103,26 +107,66 @@ class ReviewController extends Controller
         return response()->json(null, 204);
     }
 
-    private function formatReview(Review $review): array
+    /**
+     * SEC-20: when may the full reviewer/appointment shape be returned?
+     *
+     *  - administrators (moderation views keep everything);
+     *  - the owner of the review viewing their own entry — that reveals
+     *    only THEIR OWN id/name/appointment, i.e. data they already
+     *    possess through /api/appointments. This is required by the
+     *    patient "Write Review" gate (hooks/useReviewedAppointmentIds +
+     *    ReviewButtonVisibilityTest), which reads `appointment.id` from
+     *    this very endpoint as the logged-in owner.
+     *
+     * Everyone else — guests AND other authenticated users (registration
+     * is open, so "logged in" is not a privacy boundary) — receives the
+     * anonymized shape: no reviewer id, no reviewer name, no appointment
+     * block (id/date), on BOTH index and show. Rating, comment, doctor
+     * and review timestamps remain public. Emails/phones were never part
+     * of this payload. Store/update responses are unchanged (full shape,
+     * contract locked by ReviewAuthorizationTest).
+     */
+    private function revealReviewerDetails(Review $review): bool
     {
-        return [
+        $viewer = Auth::guard('sanctum')->user();
+
+        if ($viewer === null) {
+            return false;
+        }
+
+        return $viewer->role === 'admin' || $review->user_id === $viewer->id;
+    }
+
+    private function formatReview(Review $review, bool $revealReviewer = true): array
+    {
+        $formatted = [
             'id' => $review->id,
             'rating' => $review->rating,
             'comment' => $review->comment,
             'user' => [
-                'id' => $review->user->id,
-                'name' => $review->user->name,
+                'name' => $revealReviewer ? $review->user->name : null,
             ],
             'doctor' => [
                 'id' => $review->doctor->id,
                 'name' => $review->doctor->name,
             ],
-            'appointment' => [
-                'id' => $review->appointment->id,
-                'appointment_date' => $review->appointment->appointment_date?->toDateString(),
-            ],
             'created_at' => $review->created_at?->toDateTimeString(),
             'updated_at' => $review->updated_at?->toDateTimeString(),
         ];
+
+        if ($revealReviewer) {
+            // Admin or the review's own owner: reviewer id + the
+            // appointment link with its exact date.
+            $formatted['user'] = [
+                'id' => $review->user->id,
+                'name' => $review->user->name,
+            ];
+            $formatted['appointment'] = [
+                'id' => $review->appointment->id,
+                'appointment_date' => $review->appointment->appointment_date?->toDateString(),
+            ];
+        }
+
+        return $formatted;
     }
 }

@@ -17,6 +17,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
         ]);
 
+        // SEC-17: global security headers for every Laravel response
+        // (JSON API + any non-API route). Appended after the framework
+        // defaults so it observes the final response, including CORS.
+        $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
+
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

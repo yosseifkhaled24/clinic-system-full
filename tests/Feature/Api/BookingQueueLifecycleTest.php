@@ -25,7 +25,8 @@ use Laravel\Sanctum\Sanctum;
  |   +   queue sequencing, reschedule re-checks, response contract,
  |       date-only serialization of the appointments.date DATE column
  |
- | Actors always use an EXPLICIT role (UserFactory randomizes 'admin').
+ | Actors always use an EXPLICIT role (UserFactory defaults to 'user';
+ | privileged actors are requested with ->admin()).
  | All tests run on the isolated in-memory SQLite database from phpunit.xml;
  | no live data, no schema changes from this file itself.
  |
@@ -762,7 +763,7 @@ test('appointment_date is serialized as a date-only string on every appointment 
 
     // 2. Appointments index + show.
     $index = $this->getJson('/api/appointments')->assertStatus(200);
-    $entry = collect($index->json())->firstWhere('id', $appointmentId);
+    $entry = collect($index->json('data'))->firstWhere('id', $appointmentId);
     expect($entry['appointment_date'])->toMatch($dateOnly);
 
     $this->getJson("/api/appointments/{$appointmentId}")

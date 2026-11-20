@@ -93,14 +93,14 @@ test('patient index contains only their own appointments; admin sees all', funct
     Sanctum::actingAs($owner);
     $this->getJson('/api/appointments')
         ->assertStatus(200)
-        ->assertJsonStructure(['*' => ['id', 'status', 'patient']])
-        ->assertJsonCount(1)
-        ->assertJsonPath('0.id', $mine->id);
+        ->assertJsonStructure(['data' => [['id', 'status', 'patient']]])
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.id', $mine->id);
 
     Sanctum::actingAs(apptAdmin());
     $this->getJson('/api/appointments')
         ->assertStatus(200)
-        ->assertJsonCount(2);
+        ->assertJsonCount(2, 'data');
 });
 
 test('appointment show: owner 200 with shape, unrelated 403, admin 200', function () {
@@ -333,7 +333,15 @@ test('payment PATCH: invalid method still returns 422 for admin', function () {
 
 test('delete: unrelated 403, owner cancels own appointment, admin cancels any', function () {
     $owner = apptUser();
-    $appointment = apptOwnAppointment($owner, ['status' => 'pending']);
+    // SEC-08: the patient-cancel path now refuses paid appointments, and
+    // AppointmentFactory randomizes payment_status — pin it so this
+    // ownership-semantics test stays deterministic.
+    $appointment = apptOwnAppointment($owner, [
+        'status' => 'pending',
+        'payment_status' => 'unpaid',
+        'payment_method' => null,
+        'paid_at' => null,
+    ]);
 
     Sanctum::actingAs(apptUser());
     $this->deleteJson("/api/appointments/{$appointment->id}")->assertStatus(403);

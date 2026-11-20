@@ -54,6 +54,12 @@ return [
 
     'url' => env('APP_URL', 'http://localhost'),
 
+    // SEC-03: origin of the Next.js frontend. Email-verification links
+    // redirect here (/verify-email) after the signed backend route has
+    // validated the request. Falls back to APP_URL for single-origin
+    // setups.
+    'frontend_url' => env('FRONTEND_URL'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Timezone

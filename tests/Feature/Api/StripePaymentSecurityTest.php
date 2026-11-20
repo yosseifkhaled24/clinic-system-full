@@ -311,14 +311,20 @@ test('sessions Stripe reports as not paid are acknowledged but never confirmed',
 | 6. Configuration
 */
 
-test('a missing webhook secret fails loudly with 500 instead of silently rejecting everything', function () {
+test('a missing webhook secret fails safely with 503 and never confirms payment', function () {
     stripeConfigureSecret(null);
     $appointment = stripeAppointment();
     [$payload, $header] = stripeSign(stripeSessionEvent($appointment), 'whsec_anything');
 
+    // SEC-06: 503 (Service Unavailable) with an explicit code instead of
+    // a stack-trace-prone 500 — the deployment is misconfigured, the
+    // webhook must still fail closed.
     stripePost($this, $payload, $header)
-        ->assertStatus(500)
-        ->assertJson(['message' => 'Webhook secret is not configured.']);
+        ->assertStatus(503)
+        ->assertJson([
+            'message' => 'Online payments are not configured (webhook secret missing).',
+            'code' => 'payments_not_configured',
+        ]);
 
     expect($appointment->refresh()->payment_status)->toBe('unpaid');
 });
@@ -341,12 +347,14 @@ test('checkout requires authentication and ownership', function () {
 
 test('owner checkout charges the DB price in piasters and tags the appointment id', function () {
     config(['services.stripe.frontend_url' => 'https://clinic.test']);
+    stripeConfigureSecret(); // SEC-06: checkout requires the webhook secret
     $stub = stripeStubApp();
     $owner = User::factory()->create(['role' => 'user']);
     $patient = Patient::factory()->create(['user_id' => $owner->id]);
     $appointment = Appointment::factory()->create([
         'patient_id' => $patient->id,
         'user_id' => $owner->id,
+        'status' => 'pending', // SEC-06: payable status required
         'payment_status' => 'unpaid',
         'service_price' => 250,
     ]);
@@ -360,9 +368,11 @@ test('owner checkout charges the DB price in piasters and tags the appointment i
     expect($stub->captured)->toHaveCount(1);
 
     $captured = $stub->captured[0];
+    // SEC-06: the success URL carries session_id={CHECKOUT_SESSION_ID} so
+    // the success page can query the real payment state from the backend.
     expect($captured['amount'])->toBe(25000)
         ->and($captured['appointment_id'])->toEqual($appointment->id)
-        ->and($captured['success_url'])->toBe('https://clinic.test/payment/success')
+        ->and($captured['success_url'])->toBe('https://clinic.test/payment/success?session_id={CHECKOUT_SESSION_ID}')
         ->and($captured['cancel_url'])->toBe('https://clinic.test/payment/cancel');
 });
 
@@ -386,12 +396,14 @@ test('checkout refuses already-paid appointments without contacting Stripe', fun
 
 test('checkout is rate limited per user (429 after the limit)', function () {
     config(['services.stripe.frontend_url' => 'https://clinic.test']);
+    stripeConfigureSecret(); // SEC-06: checkout requires the webhook secret
     $stub = stripeStubApp();
     $owner = User::factory()->create(['role' => 'user']);
     $patient = Patient::factory()->create(['user_id' => $owner->id]);
     $appointment = Appointment::factory()->create([
         'patient_id' => $patient->id,
         'user_id' => $owner->id,
+        'status' => 'pending', // SEC-06: payable status required
         'payment_status' => 'unpaid',
         'service_price' => 250,
     ]);
